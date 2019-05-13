@@ -26,4 +26,3 @@ These guys helped me a lot to bring my skills on a new level. Check out their Gi
 
 @Bluscream
 @alex720
-
