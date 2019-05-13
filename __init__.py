@@ -7,9 +7,9 @@ from PythonQt.QtCore import Qt
 from PythonQt.QtSql import QSqlDatabase
 from PythonQt.QtGui import *
 from pytsonui import *
-
+from ts3widgets.serverview import ServerviewModel
+            
 class ContactManager(ts3plugin):
-
     # --------------------------------------------
     # Plugin info vars
     # --------------------------------------------
@@ -19,7 +19,7 @@ class ContactManager(ts3plugin):
     version         = "1.0"
     apiVersion      = 21
     author          = "Luemmel"
-    description     = "Automatically grants talkpower, assigns channelgroups for blocked users and freinds or kicks blocked users."
+    description     = "Automatically grants talkpower, assigns channelgroups for blocked users or friends and kicks blocked users."
     offersConfigure = True
     commandKeyword  = ""
     infoTitle       = None
@@ -57,9 +57,45 @@ class ContactManager(ts3plugin):
     # --------------------------------------------
 
     debug = False
+    
+    def onClientDisplayNameChanged(self, schid, clientID, displayName, uniqueClientIdentifier):
+        
+        # Own client ID and own channel
+        (error, myid) = ts3.getClientID(schid)
+        (error, mych) = ts3.getChannelOfClient(schid, myid)
+        (error, cch) = ts3.getChannelOfClient(schid, clientID)
+        
+        status = self.contactStatus(uniqueClientIdentifier)
 
-    def __init__(self):
+        
+        # Only react if friend or blocked joined the channel
+        if (status == 0 or status == 1) and mych == cch:
 
+                # blocked
+                if status == 1:
+
+                    # Assign blocked channelgroup
+                    if self.s_blocked_chg:
+                        self.setClientChannelGroup(schid, 1, clientID, mych)
+
+                    # kick blocked
+                    if self.s_blocked_kick:
+                        ts3.requestClientKickFromChannel(schid, clientID, "", self.error_kickFromChannel)
+
+                # freinds
+                if status == 0:
+
+                    # Assign friends channelgroup
+                    if self.s_friends_chg:
+                        self.setClientChannelGroup(schid, 0, clientID, mych)
+
+                    # Grant friends talkpower
+                    if self.s_friends_tp:
+                        ts3.requestClientSetIsTalker(schid, clientID, True, self.error_setClientTalkpower)
+
+        
+
+    def __init__(self):        
         # --------------------------------------------
         # Database
         # --------------------------------------------
@@ -103,6 +139,7 @@ class ContactManager(ts3plugin):
         self.openMainDialog()
 
     def onMenuItemEvent(self, sch_id, a_type, menu_item_id, selected_item_id):
+        ts3.printMessageToCurrentTab(str())
         if a_type == ts3defines.PluginMenuType.PLUGIN_MENU_TYPE_GLOBAL:
             if menu_item_id == 0:
                 self.openMainDialog()
@@ -322,7 +359,7 @@ class ContactManager(ts3plugin):
 class MainDialog(QDialog):
     try:
         def __init__(self, contactmanager, parent=None):
-            try:
+            try:                
                 # shorten main object to cm
                 self.cm = contactmanager
                 
