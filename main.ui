@@ -135,7 +135,7 @@ p, li { white-space: pre-wrap; }
     <bool>true</bool>
    </property>
   </widget>
-  <widget class="QLabel" name="label_version">
+  <widget class="QLabel" name="ui_label_version">
    <property name="geometry">
     <rect>
      <x>280</x>
@@ -249,7 +249,7 @@ p, li { white-space: pre-wrap; }
     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#04d02d;&quot;&gt;Friends&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
    </property>
   </widget>
-  <widget class="QCheckBox" name="cb_friends_chg">
+  <widget class="QCheckBox" name="ui_cb_f_channelgroup">
    <property name="geometry">
     <rect>
      <x>10</x>
@@ -274,7 +274,7 @@ p, li { white-space: pre-wrap; }
     <string>assign channelgroup</string>
    </property>
   </widget>
-  <widget class="QCheckBox" name="cb_friends_tp">
+  <widget class="QCheckBox" name="ui_cb_f_talkpower">
    <property name="geometry">
     <rect>
      <x>10</x>
@@ -318,7 +318,7 @@ p, li { white-space: pre-wrap; }
     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#ff0004;&quot;&gt;Blocked users&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
    </property>
   </widget>
-  <widget class="QCheckBox" name="cb_blocked_chg">
+  <widget class="QCheckBox" name="ui_cb_b_channelgroup">
    <property name="geometry">
     <rect>
      <x>10</x>
@@ -337,7 +337,7 @@ p, li { white-space: pre-wrap; }
     <string>assign channelgroup</string>
    </property>
   </widget>
-  <widget class="QCheckBox" name="cb_blocked_kick">
+  <widget class="QCheckBox" name="ui_cb_b_kick">
    <property name="geometry">
     <rect>
      <x>10</x>
@@ -356,7 +356,7 @@ p, li { white-space: pre-wrap; }
     <string>kick from channel</string>
    </property>
   </widget>
-  <widget class="QPushButton" name="btn_anwenden">
+  <widget class="QPushButton" name="ui_btn_global">
    <property name="enabled">
     <bool>true</bool>
    </property>
@@ -420,7 +420,7 @@ border: 1px solid rgb(255, 133, 10);
     <string>Server</string>
    </property>
   </widget>
-  <widget class="QComboBox" name="combo_servers">
+  <widget class="QComboBox" name="ui_combo_server">
    <property name="geometry">
     <rect>
      <x>190</x>
@@ -481,7 +481,7 @@ selection-background-color: rgb(255, 153, 0);
     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#04d02d;&quot;&gt;Friends&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
    </property>
   </widget>
-  <widget class="QComboBox" name="combo_friends_channelgroup">
+  <widget class="QComboBox" name="ui_combo_f_channelgroup">
    <property name="geometry">
     <rect>
      <x>190</x>
@@ -539,7 +539,7 @@ selection-background-color: rgb(255, 153, 0);
     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#ff0004;&quot;&gt;Blocked users&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
    </property>
   </widget>
-  <widget class="QComboBox" name="combo_block_channelgroup">
+  <widget class="QComboBox" name="ui_combo_b_channelgroup">
    <property name="geometry">
     <rect>
      <x>190</x>
@@ -564,7 +564,7 @@ selection-color: black;
 selection-background-color: rgb(255, 153, 0);</string>
    </property>
   </widget>
-  <widget class="QPushButton" name="btn_anwenden_server">
+  <widget class="QPushButton" name="ui_btn_server">
    <property name="geometry">
     <rect>
      <x>190</x>
