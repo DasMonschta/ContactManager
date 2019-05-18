@@ -17,7 +17,7 @@ class ContactManager(ts3plugin):
 
     name            = "Contact Manager"
     requestAutoload = False
-    version         = "1.0"
+    version         = "1.1"
     apiVersion      = 21
     author          = "Luemmel"
     description     = "Automatically grants talkpower, assigns channelgroups for blocked users or friends and kicks blocked users."
@@ -54,34 +54,9 @@ class ContactManager(ts3plugin):
     settings["f_talkpower"]     = None
     settings["b_channelgroup"]  = None
     settings["b_kick"]          = None
-
-    # --------------------------------------------
-    # Debug
-    # --------------------------------------------
-
-    debug = True
     
-  #  def tick(self):     
-   #     status = self.contactStatus(self.uid)   
-    #    ts3.printMessageToCurrentTab(str(status))  
-     #   self.performUserActions(self.schid, status, self.clientID, self.mych)  
-    
-    #def onClientDisplayNameChanged(self, schid, clientID, displayName, uid):       
-        
-        # Own client ID and own channel
-    #    (error, myid) = ts3.getClientID(schid)
-    #    (error, mych) = ts3.getChannelOfClient(schid, myid)
-     #   (error, cch) = ts3.getChannelOfClient(schid, clientID)         
+    def __init__(self):           
 
-        # Only react in my channel
-     #   if mych == cch:       
-     #       self.uid = uid
-     #       self.schid = schid
-     #       self.clientID = clientID
-      #      self.mych = mych
-      #      QTimer.singleShot(500, self.tick)          
-
-    def __init__(self):            
         # --------------------------------------------
         # Database
         # --------------------------------------------
@@ -103,10 +78,9 @@ class ContactManager(ts3plugin):
         # --------------------------------------------
         # Load General Settings
         # --------------------------------------------
-
+        
         s = self.db.exec_("SELECT * FROM settings LIMIT 1")
         if not self.db.lastError().isValid():
-            if self.debug: ts3.printMessageToCurrentTab("Settings SELECT succeeded!")
             if s.next():
                 self.settings["f_channelgroup"] = bool(s.value("db_f_channelgroup"))
                 self.settings["f_talkpower"]    = bool(s.value("db_f_talkpower"))
@@ -119,18 +93,19 @@ class ContactManager(ts3plugin):
         self.db_c.close()
         self.db_c.delete()
         QSqlDatabase.removeDatabase("pyTSon_contactmanager")
-        QSqlDatabase.removeDatabase("pyTSon_contacts")
-
+        QSqlDatabase.removeDatabase("pyTSon_contacts")        
+        
+    # --------------------------------------------
+    # Dialog
+    # --------------------------------------------   
+    
     def configure(self, qParentWidget):
         self.openMainDialog()
-
+        
     def onMenuItemEvent(self, sch_id, a_type, menu_item_id, selected_item_id):
-        ts3.printMessageToCurrentTab(str())
         if a_type == ts3defines.PluginMenuType.PLUGIN_MENU_TYPE_GLOBAL:
-            if menu_item_id == 0:
-                self.openMainDialog()
-    
-    # Open mainwindow
+            if menu_item_id == 0: self.openMainDialog()   
+            
     def openMainDialog(self):
         self.dlg = MainDialog(self)
         self.dlg.show()
@@ -140,24 +115,16 @@ class ContactManager(ts3plugin):
     # This method fires on connect to a server and if you open the right system
     # Fires multipletimes for each channelgroup
     def onChannelGroupListEvent(self, schid, chgid, name, atype, iconID, saveDB):
-
         # If regular group
         if atype == 1:
-
             # Append channelgroup ids and channelgroup names to temporary vars
             self.channel_group_list.append(chgid)
             self.channel_group_list_name.append(name)
-            if self.debug: ts3.printMessageToCurrentTab("CHGID: {0} CHNAME: {1}".format(chgid, name))
 
     # This method fires if all channelgroups were send via onChannelGroupListEvent()
     def onChannelGroupListFinishedEvent(self, schid):
-
-        if self.debug: ts3.printMessageToCurrentTab("Channelgrouplist finished!")
-
         (error, sname) = ts3.getServerVariableAsString(schid, ts3defines.VirtualServerProperties.VIRTUALSERVER_NAME)
         (error, suid) = ts3.getServerVariableAsString(schid, ts3defines.VirtualServerProperties.VIRTUALSERVER_UNIQUE_IDENTIFIER)
-
-        if self.debug: ts3.printMessageToCurrentTab("SUID: "+str(suid)+" CHANNELGROUPS: "+str(self.channel_group_list))
 
         # Start checking for channelgroup updates or if server is known
         self.checkServer(schid, sname, suid, self.channel_group_list, self.channel_group_list_name)
@@ -170,27 +137,17 @@ class ContactManager(ts3plugin):
         s = self.db.exec_("SELECT * FROM server WHERE db_suid='"+str(suid)+"' LIMIT 1")
         if not self.db.lastError().isValid():
             # If server is known checkServerForUpdate() else insertServer()
-            if s.next():
-                if self.debug: ts3.printMessageToCurrentTab("Server known!")
-                self.checkServerForUpdate(schid, sname, suid, channelgroups, channelgroups_name)
-            else:
-                if self.debug: ts3.printMessageToCurrentTab("Server unknown!")
-                self.insertServer(schid, sname, suid, channelgroups, channelgroups_name)
+            if s.next(): self.checkServerForUpdate(schid, sname, suid, channelgroups, channelgroups_name)
+            else: self.insertServer(schid, sname, suid, channelgroups, channelgroups_name)
 
     # This method inserts a new server into server table and channelgroups into channelgroups table
-    def insertServer(self, schid, sname, suid, channelgroups, channelgroups_name):
-        
+    def insertServer(self, schid, sname, suid, channelgroups, channelgroups_name):        
         # Insert new Server in server table    
         i = self.db.exec_("INSERT INTO server (db_name, db_suid) VALUES ('%s', '%s')" % (sname,suid))
-        if self.debug:
-            if not self.db.lastError().isValid(): ts3.printMessageToCurrentTab("Server INSERT succeeded!")
-            else: ts3.printMessageToCurrentTab("Server INSERT failed!!")
-
         # Get new Server DB id
         s = self.db.exec_("SELECT db_id FROM server WHERE db_suid='"+str(suid)+"' LIMIT 1")
         if not self.db.lastError().isValid():
-            if s.next():
-                sid = s.value("db_id")        
+            if s.next(): sid = s.value("db_id")      
         
         # Insert channelgroups
         # Generating value string that goes into insert statemenet
@@ -203,29 +160,19 @@ class ContactManager(ts3plugin):
 
         # Insert all channelgroups + names
         i = self.db.exec_("INSERT INTO channelgroups (db_sid, db_id, db_name) VALUES "+channelgroup_insert_values)
-        if self.debug:
-            if not self.db.lastError().isValid(): ts3.printMessageToCurrentTab("Channelgroups INSERT succeeded!")
-            else: ts3.printMessageToCurrentTab("Channelgroups INSERT failed!!")
 
     def checkServerForUpdate(self, schid, sname, suid, channelgroups, channelgroups_name):
-        
-        if self.debug: ts3.printMessageToCurrentTab("Start checking!")
-        
         sid = None
         
         # Get Server DB id and name
         s = self.db.exec_("SELECT * FROM server WHERE db_suid='"+str(suid)+"' LIMIT 1")
         if not self.db.lastError().isValid():
-            if self.debug: ts3.printMessageToCurrentTab("Server SELECT succeeded!")
-            if s.next():
+            if s.next():             
                 sid = s.value("db_id")
                 
                 # If servername changed then update new servername
                 if s.value("db_name") != sname:
                     u = self.db.exec_("UPDATE server SET db_name='%s' WHERE db_suid='%s' " % (sname,suid))
-                    if self.debug:
-                        if not self.db.lastError().isValid(): ts3.printMessageToCurrentTab("Name UPDATE succeeded!")
-                        else: ts3.printMessageToCurrentTab("Name UPDATE failed!!")
         
         # Temporary vars for DB output
         check_channelgroups = []
@@ -244,9 +191,6 @@ class ContactManager(ts3plugin):
         
             # Delete all channelgroups from channelgroups table
             d = self.db.exec_("DELETE FROM channelgroups WHERE db_sid='"+str(sid)+"'")
-            if self.debug:
-                if not self.db.lastError().isValid(): ts3.printMessageToCurrentTab("Channelgroup DELETE succeeded!")
-                else: ts3.printMessageToCurrentTab("Channelgroup DELETE failed!!")
 
             # Insert channelgroups
             # Generating value string that goes into insert statemenet
@@ -259,53 +203,49 @@ class ContactManager(ts3plugin):
             ts3.printMessageToCurrentTab(channelgroup_insert_values)
             # Insert all channelgroups + names
             i = self.db.exec_("INSERT INTO channelgroups (db_sid, db_id, db_name) VALUES %s" % (channelgroup_insert_values))
-            if self.debug:
-                if not self.db.lastError().isValid(): ts3.printMessageToCurrentTab("Channelgroups INSERT succeeded!")
-                else: ts3.printMessageToCurrentTab("Channelgroups INSERT failed!!")
 
-                    
             # Show Changes dialog
             self.changesdlg = ChangesDialog(self)
             self.changesdlg.show()
             self.changesdlg.raise_()
             self.changesdlg.activateWindow()
-                
+
     def onClientMoveEvent(self, schid, clientID, oldChannelID, newChannelID, visibility, moveMessage):
-        
+        self.doContactActions(schid, clientID) 
+
+    def onClientDisplayNameChanged(self, schid, clientID, displayName, uid):        
+        QTimer.singleShot(200, lambda : self.doContactActions(schid, clientID))        
+ 
+    def doContactActions(self, schid, clientID):    
         # Own client ID and own channel
         (error, myid) = ts3.getClientID(schid)
         (error, mych) = ts3.getChannelOfClient(schid, myid)
+        (error, cch) = ts3.getChannelOfClient(schid, clientID)
 
         # Only react if client joins my channel and at least one setting is activated
-        if newChannelID == mych and not myid == clientID and (self.settings["f_channelgroup"] or self.settings["f_talkpower"] or self.settings["b_channelgroup"] or self.settings["b_kick"]):
-
+        if cch == mych and not myid == clientID and (self.settings["f_channelgroup"] or self.settings["f_talkpower"] or self.settings["b_channelgroup"] or self.settings["b_kick"]):
+            
             # Contact status check
             (error, cuid) = ts3.getClientVariableAsString(schid, clientID, ts3defines.ClientProperties.CLIENT_UNIQUE_IDENTIFIER)
             status = self.contactStatus(cuid)
 
             # Only react if friend or blocked joined the channel
-            if status == 0 or status == 1:
-            
+            if status == 0 or status == 1:            
                 # blocked
                 if status == 1:
-
                     # Assign blocked channelgroup
                     if self.settings["b_channelgroup"]:
                         self.setClientChannelGroup(schid, 1, clientID, mych)
-
                     # kick blocked
                     if self.settings["b_kick"]:
                         ts3.requestClientKickFromChannel(schid, clientID, "", self.error_kickFromChannel)
-
                 # freinds
                 if status == 0:
-
                     # Assign friends channelgroup
                     if self.settings["f_channelgroup"]:
                         self.setClientChannelGroup(schid, 0, clientID, mych)
-
                     # Grant friends talkpower
-                    elif self.settings["f_talkpower"]:
+                    if self.settings["f_talkpower"]:
                         ts3.requestClientSetIsTalker(schid, clientID, True, self.error_setClientTalkpower)
 
     def contactStatus(self, uid):
@@ -318,7 +258,6 @@ class ContactManager(ts3plugin):
         status = 2
         s = self.db_c.exec_("SELECT * FROM contacts WHERE value LIKE '%%IDS="+str(uid)+"%%' LIMIT 1")
         if not self.db.lastError().isValid():
-            if self.debug: ts3.printMessageToCurrentTab("Contact SELECT succeeded!")
             if s.next():
                 val = s.value("value")
                 for l in val.split('\n'):
@@ -332,7 +271,6 @@ class ContactManager(ts3plugin):
 
         db = self.db.exec_("SELECT db_f_channelgroup, db_b_channelgroup FROM server WHERE db_suid='"+str(suid)+"' LIMIT 1")
         if not self.db.lastError().isValid():
-            if self.debug: ts3.printMessageToCurrentTab("OperatorGroup banngroup SELECT succeeded!")
             if db.next():
                 (error, cdbid) = ts3.getClientVariableAsUInt64(schid, cid, ts3defines.ClientPropertiesRare.CLIENT_DATABASE_ID)
                 group = None
@@ -340,11 +278,11 @@ class ContactManager(ts3plugin):
                 if status == 0: group = db.value("db_f_channelgroup")
 
                 ts3.requestSetClientChannelGroup(schid, [group], [chid], [cdbid], self.error_setClientChannelGroup)
-
-                
+ 
     # Catching Plguin Errors
     def onServerErrorEvent(self, schid, errorMessage, error, returnCode, extraMessage):
         if returnCode == self.error_kickFromChannel or returnCode == self.error_setClientTalkpower or returnCode == self.error_setClientChannelGroup: return True
+    
     def onServerPermissionErrorEvent(self, schid, errorMessage, error, returnCode, failedPermissionID):
         if returnCode == self.error_kickFromChannel or returnCode == self.error_setClientTalkpower or returnCode == self.error_setClientChannelGroup: return True
 
@@ -402,8 +340,7 @@ class MainDialog(QDialog):
                     except:
                         print("Unknown Error")
 
-        def serverSelectionChanged(self, index):
-            
+        def serverSelectionChanged(self, index):            
             # If no server selected then reset ui_combo_f_channelgroup and ui_combo_b_channelgroup
             if index == 0:
                 self.ui_combo_f_channelgroup.clear()
@@ -416,8 +353,7 @@ class MainDialog(QDialog):
                 self.loadChannelgroups(self.ui_combo_f_channelgroup, id)
                 self.loadChannelgroups(self.ui_combo_b_channelgroup, id)
 
-        def loadChannelgroups(self, combobox, id):
-            
+        def loadChannelgroups(self, combobox, id):            
             combobox.clear()
             s = self.cm.db.exec_("SELECT db_id, db_name FROM channelgroups WHERE db_sid ='"+str(id)+"'")
             if not self.cm.db.lastError().isValid():                
@@ -448,8 +384,7 @@ class MainDialog(QDialog):
                         combobox.setItemData(index, QFont('MS Shell Dlg 2', 8, QFont.Bold), Qt.FontRole)
                         combobox.setCurrentIndex(index)
 
-        def save_server(self):
-        
+        def save_server(self):        
             # Get current server db id, friends and blocked chg id from current selections
             current_server = self.ui_combo_server.currentData
             current_f_channelgroup = self.ui_combo_f_channelgroup.currentData
@@ -466,19 +401,14 @@ class MainDialog(QDialog):
                 self.msgdlg = MessageDialog(self)
                 self.msgdlg.show()
                 self.msgdlg.raise_()
-                self.msgdlg.activateWindow()
-                
-                if self.cm.debug: ts3.printMessageToCurrentTab("Server Channelgruppen UPDATE succeeded!")
+                self.msgdlg.activateWindow()                
 
                 # Reload combo_friends_channelgroup and combo_block_channelgroup
                 # to renew the highlighted channelgroups
                 self.loadChannelgroups(self.ui_combo_f_channelgroup, current_server)
                 self.loadChannelgroups(self.ui_combo_b_channelgroup, current_server)
-            else:
-                if self.cm.debug: ts3.printMessageToCurrentTab("Server Channelgruppen UPDATE failed!!")
 
-        def save_global(self):
-            
+        def save_global(self):            
             # Save current selection to plugin setting vars
             self.cm.settings["f_channelgroup"] = self.ui_cb_f_channelgroup.isChecked()
             self.cm.settings["f_talkpower"] = self.ui_cb_f_talkpower.isChecked()
@@ -497,10 +427,7 @@ class MainDialog(QDialog):
                 self.msgdlg.show()
                 self.msgdlg.raise_()
                 self.msgdlg.activateWindow()
-                
-                if self.cm.debug: ts3.printMessageToCurrentTab("Settings UPDATE succeeded!")
-            else:
-                if self.cm.debug: ts3.printMessageToCurrentTab("Settings UPDATE failed!!")
+
     except:
         try:
             from traceback import format_exc; ts3.logMessage(format_exc(), ts3defines.LogLevel.LogLevel_ERROR, "PyTSon Script", 0)
