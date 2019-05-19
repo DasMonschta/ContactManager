@@ -15,10 +15,10 @@ class ContactManager(ts3plugin):
 
     name            = "Contact Manager"
     requestAutoload = False
-    version         = "1.1"
+    version         = "1.2"
     apiVersion      = 21
     author          = "Luemmel"
-    description     = "Automatically grants talkpower, assigns channelgroups for blocked users or friends and kicks blocked users."
+    description     = "Automatically grants talkpower, assigns channelgroups for blocked users or friends, send private message to blocked users and friends and kicks blocked users."
     offersConfigure = True
     commandKeyword  = ""
     infoTitle       = None
@@ -210,7 +210,6 @@ class ContactManager(ts3plugin):
                 channelgroup_insert_values += "("+str(sid)+", '"+str(channelgroups[index])+"', '"+str(channelgroups_name[index])+"'),"
             # remove last char
             channelgroup_insert_values = channelgroup_insert_values[:-1]
-            ts3.printMessageToCurrentTab(channelgroup_insert_values)
             # Insert all channelgroups + names
             i = self.db.exec_("INSERT INTO channelgroups (db_sid, db_id, db_name) VALUES %s" % (channelgroup_insert_values))
 
@@ -287,7 +286,6 @@ class ContactManager(ts3plugin):
         db = self.db.exec_("SELECT db_f_channelgroup, db_b_channelgroup FROM server WHERE db_suid='"+str(suid)+"' LIMIT 1")
         if not self.db.lastError().isValid():
             if db.next():
-                ts3.printMessageToCurrentTab(str(db.value("db_b_channelgroup")))
                 if db.value("db_b_channelgroup") == "":
                     return
                 (error, cdbid) = ts3.getClientVariableAsUInt64(schid, cid, ts3defines.ClientPropertiesRare.CLIENT_DATABASE_ID)
@@ -428,10 +426,8 @@ class MainDialog(QDialog):
                 # Reload combo_friends_channelgroup and combo_block_channelgroup
                 # to renew the highlighted channelgroups
                 self.loadChannelgroups(self.ui_combo_f_channelgroup, current_server)
-                self.loadChannelgroups(self.ui_combo_b_channelgroup, current_server)
+                self.loadChannelgroups(self.ui_combo_b_channelgroup, current_server)  
                 
-            ts3.printMessageToCurrentTab("so far so goood")
-            
             # Save current selection to plugin setting vars
             self.cm.settings["f_channelgroup"] = self.ui_cb_f_channelgroup.isChecked()
             self.cm.settings["f_talkpower"] = self.ui_cb_f_talkpower.isChecked()
