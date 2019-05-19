@@ -7,9 +7,7 @@ from PythonQt.QtCore import Qt, QTimer
 from PythonQt.QtSql import QSqlDatabase
 from PythonQt.QtGui import *
 from pytsonui import *
-from ts3widgets.serverview import *
 
-            
 class ContactManager(ts3plugin):
     # --------------------------------------------
     # Plugin info vars
@@ -35,6 +33,7 @@ class ContactManager(ts3plugin):
     error_setClientTalkpower    = ts3.createReturnCode()
     error_setClientChannelGroup = ts3.createReturnCode()
     error_kickFromChannel       = ts3.createReturnCode()
+    error_sendMessage           = ts3.createReturnCode()
 
     # --------------------------------------------
     # Temporary vars
@@ -50,10 +49,15 @@ class ContactManager(ts3plugin):
     # --------------------------------------------    
     
     settings = {}    
-    settings["f_channelgroup"]  = None
-    settings["f_talkpower"]     = None
-    settings["b_channelgroup"]  = None
-    settings["b_kick"]          = None
+    settings["f_channelgroup"]      = None
+    settings["f_talkpower"]         = None
+    settings["f_message"]           = None
+    settings["f_message_message"]   = ""
+    settings["b_channelgroup"]      = None
+    settings["b_kick"]              = None
+    settings["b_kick_message"]      = ""
+    settings["b_message"]           = None
+    settings["b_message_message"]   = ""
     
     def __init__(self):           
 
@@ -82,11 +86,17 @@ class ContactManager(ts3plugin):
         s = self.db.exec_("SELECT * FROM settings LIMIT 1")
         if not self.db.lastError().isValid():
             if s.next():
-                self.settings["f_channelgroup"] = bool(s.value("db_f_channelgroup"))
-                self.settings["f_talkpower"]    = bool(s.value("db_f_talkpower"))
-                self.settings["b_channelgroup"] = bool(s.value("db_b_channelgroup"))
-                self.settings["b_kick"]         = bool(s.value("db_b_kick"))
-
+                self.settings["f_channelgroup"]     = bool(s.value("db_f_channelgroup"))
+                self.settings["f_talkpower"]        = bool(s.value("db_f_talkpower"))
+                self.settings["f_message"]          = bool(s.value("db_f_message"))
+                self.settings["f_message_message"]  = s.value("db_f_message_message")
+                self.settings["b_channelgroup"]     = bool(s.value("db_b_channelgroup"))
+                self.settings["b_kick"]             = bool(s.value("db_b_kick"))
+                self.settings["b_kick_message"]     = s.value("db_b_kick_message")
+                self.settings["b_message"]          = bool(s.value("db_b_message"))
+                self.settings["b_message_message"]  = s.value("db_b_message_message")
+                
+                    
     def stop(self):
         self.db.close()
         self.db.delete()
@@ -233,14 +243,20 @@ class ContactManager(ts3plugin):
             if status == 0 or status == 1:            
                 # blocked
                 if status == 1:
+                    # Send message to blocked user
+                    if self.settings["b_message"]:
+                        ts3.requestSendPrivateTextMsg(schid, self.settings["b_message_message"], clientID, self.error_sendMessage)
                     # Assign blocked channelgroup
                     if self.settings["b_channelgroup"]:
                         self.setClientChannelGroup(schid, 1, clientID, mych)
                     # kick blocked
                     if self.settings["b_kick"]:
-                        ts3.requestClientKickFromChannel(schid, clientID, "", self.error_kickFromChannel)
+                        ts3.requestClientKickFromChannel(schid, clientID, self.settings["b_kick_message"], self.error_kickFromChannel)
                 # freinds
-                if status == 0:
+                if status == 0:                
+                    # Send message to blocked user
+                    if self.settings["f_message"]:
+                        ts3.requestSendPrivateTextMsg(schid, self.settings["f_message_message"], clientID, self.error_sendMessage)
                     # Assign friends channelgroup
                     if self.settings["f_channelgroup"]:
                         self.setClientChannelGroup(schid, 0, clientID, mych)
@@ -265,13 +281,15 @@ class ContactManager(ts3plugin):
                         status = int(l[-1])
         return status
     
-    def setClientChannelGroup(self, schid, status, cid, chid):
-        
+    def setClientChannelGroup(self, schid, status, cid, chid):        
         (error, suid) = ts3.getServerVariableAsString(schid, ts3defines.VirtualServerProperties.VIRTUALSERVER_UNIQUE_IDENTIFIER)
 
         db = self.db.exec_("SELECT db_f_channelgroup, db_b_channelgroup FROM server WHERE db_suid='"+str(suid)+"' LIMIT 1")
         if not self.db.lastError().isValid():
             if db.next():
+                ts3.printMessageToCurrentTab(str(db.value("db_b_channelgroup")))
+                if db.value("db_b_channelgroup") == "":
+                    return
                 (error, cdbid) = ts3.getClientVariableAsUInt64(schid, cid, ts3defines.ClientPropertiesRare.CLIENT_DATABASE_ID)
                 group = None
                 if status == 1: group = db.value("db_b_channelgroup")
@@ -281,10 +299,10 @@ class ContactManager(ts3plugin):
  
     # Catching Plguin Errors
     def onServerErrorEvent(self, schid, errorMessage, error, returnCode, extraMessage):
-        if returnCode == self.error_kickFromChannel or returnCode == self.error_setClientTalkpower or returnCode == self.error_setClientChannelGroup: return True
+        if returnCode == self.error_sendMessage or returnCode == self.error_kickFromChannel or returnCode == self.error_setClientTalkpower or returnCode == self.error_setClientChannelGroup: return True
     
     def onServerPermissionErrorEvent(self, schid, errorMessage, error, returnCode, failedPermissionID):
-        if returnCode == self.error_kickFromChannel or returnCode == self.error_setClientTalkpower or returnCode == self.error_setClientChannelGroup: return True
+        if returnCode == self.error_sendMessage or returnCode == self.error_kickFromChannel or returnCode == self.error_setClientTalkpower or returnCode == self.error_setClientChannelGroup: return True
 
 class MainDialog(QDialog):
     try:
@@ -308,8 +326,7 @@ class MainDialog(QDialog):
                 self.ui_label_version.setText("v"+self.cm.version)                
                 
                 # Button connects
-                self.ui_btn_global.clicked.connect(self.save_global)
-                self.ui_btn_server.clicked.connect(self.save_server)
+                self.ui_btn_save.clicked.connect(self.save)
                 
                 # Server QCombobox connect
                 self.ui_combo_server.currentIndexChanged.connect(self.serverSelectionChanged)
@@ -318,7 +335,19 @@ class MainDialog(QDialog):
                 self.ui_cb_f_channelgroup.setChecked(self.cm.settings["f_channelgroup"])
                 self.ui_cb_f_talkpower.setChecked(self.cm.settings["f_talkpower"])
                 self.ui_cb_b_channelgroup.setChecked(self.cm.settings["b_channelgroup"])
-                self.ui_cb_b_kick.setChecked(self.cm.settings["b_kick"])
+                self.ui_cb_b_kick.setChecked(self.cm.settings["b_kick"])     
+                
+                self.ui_cb_f_message.setChecked(self.cm.settings["f_message"])
+                self.ui_cb_b_message.setChecked(self.cm.settings["b_message"])
+                
+                self.ui_line_b_kick_message.setText(self.cm.settings["b_kick_message"])
+                self.ui_line_b_kick_message.setCursorPosition(0)
+                
+                self.ui_line_b_message.setText(self.cm.settings["b_message_message"])
+                self.ui_line_b_message.setCursorPosition(0)
+                
+                self.ui_line_f_message.setText(self.cm.settings["f_message_message"])
+                self.ui_line_f_message.setCursorPosition(0)
                 
                 # Reserve space for MessageDialog
                 msgdlg = None
@@ -384,7 +413,7 @@ class MainDialog(QDialog):
                         combobox.setItemData(index, QFont('MS Shell Dlg 2', 8, QFont.Bold), Qt.FontRole)
                         combobox.setCurrentIndex(index)
 
-        def save_server(self):        
+        def save(self):        
             # Get current server db id, friends and blocked chg id from current selections
             current_server = self.ui_combo_server.currentData
             current_f_channelgroup = self.ui_combo_f_channelgroup.currentData
@@ -395,33 +424,46 @@ class MainDialog(QDialog):
             if current_b_channelgroup == None: current_b_channelgroup = "NULL"
 
             u = self.cm.db.exec_("UPDATE server SET db_f_channelgroup="+str(current_f_channelgroup)+", db_b_channelgroup="+str(current_b_channelgroup)+" WHERE db_id="+str(current_server))
-            if not self.cm.db.lastError().isValid():
-                
-                # Show success dialog
-                self.msgdlg = MessageDialog(self)
-                self.msgdlg.show()
-                self.msgdlg.raise_()
-                self.msgdlg.activateWindow()                
-
+            if not self.cm.db.lastError().isValid():   
                 # Reload combo_friends_channelgroup and combo_block_channelgroup
                 # to renew the highlighted channelgroups
                 self.loadChannelgroups(self.ui_combo_f_channelgroup, current_server)
                 self.loadChannelgroups(self.ui_combo_b_channelgroup, current_server)
-
-        def save_global(self):            
+                
+            ts3.printMessageToCurrentTab("so far so goood")
+            
             # Save current selection to plugin setting vars
             self.cm.settings["f_channelgroup"] = self.ui_cb_f_channelgroup.isChecked()
             self.cm.settings["f_talkpower"] = self.ui_cb_f_talkpower.isChecked()
+            self.cm.settings["f_message"] = self.ui_cb_f_message.isChecked()
+            self.cm.settings["f_message_message"] = self.ui_line_f_message.text.replace('"', '').replace("'", "")
             self.cm.settings["b_channelgroup"] = self.ui_cb_b_channelgroup.isChecked()
-            self.cm.settings["b_kick"] = self.ui_cb_b_kick.isChecked()
+            self.cm.settings["b_kick"] = self.ui_cb_b_kick.isChecked() 
+            self.cm.settings["b_kick_message"] = self.ui_line_b_kick_message.text.replace('"', '').replace("'", "")
+            self.cm.settings["b_message"] = self.ui_cb_b_message.isChecked()
+            self.cm.settings["b_message_message"] = self.ui_line_b_message.text.replace('"', '').replace("'", "")
+    
+            self.ui_line_b_kick_message.setText(self.cm.settings["b_kick_message"])
+            self.ui_line_b_kick_message.setCursorPosition(0)
+
+            self.ui_line_b_message.setText(self.cm.settings["b_message_message"])
+            self.ui_line_b_message.setCursorPosition(0)
+
+            self.ui_line_f_message.setText(self.cm.settings["f_message_message"])
+            self.ui_line_f_message.setCursorPosition(0)
             
             # Update DB from plugin settings vars
             self.cm.db.exec_("UPDATE settings SET db_f_channelgroup = "+str(int(self.cm.settings["f_channelgroup"]))+", "
                              "db_f_talkpower = "+str(int(self.cm.settings["f_talkpower"]))+", "
+                             "db_f_message = "+str(int(self.cm.settings["f_message"]))+", "
+                             "db_f_message_message = '"+self.cm.settings["f_message_message"]+"', "
                              "db_b_channelgroup = "+str(int(self.cm.settings["b_channelgroup"]))+", "
-                             "db_b_kick = "+str(int(self.cm.settings["b_kick"])))
+                             "db_b_kick = "+str(int(self.cm.settings["b_kick"]))+", "
+                             "db_b_kick_message = '"+self.cm.settings["b_kick_message"]+"', "
+                             "db_b_message = "+str(int(self.cm.settings["b_message"]))+", "
+                             "db_b_message_message = '"+self.cm.settings["b_message_message"]+"'")
+                             
             if not self.cm.db.lastError().isValid():
-                
                 # Show success dialog
                 self.msgdlg = MessageDialog(self)
                 self.msgdlg.show()
