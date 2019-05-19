@@ -1,4 +1,4 @@
-# Contact Manager
+# Contact Manager ![GitHub All Releases](https://img.shields.io/github/downloads/DerLuemmel/ContactManager/total.svg?label=Downloads&style=popout-square)
 
 Script for Teamspeak 3 pyTSon plugin
 
