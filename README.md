@@ -9,6 +9,7 @@ Script for Teamspeak 3 pyTSon plugin
 * Automatically grants your friends talkpower
 * Automatically assigns channelgroups for friends and blocked users
 * Automatically kicks blocked users 
+* Automatically send private messages to blocked users or friends
 
 # How To Install
 1. Install [pyTSon](https://www.myteamspeak.com/addons/86d2c267-1b43-4a4b-8cfb-06c2d8208bdc)
