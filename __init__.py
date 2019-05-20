@@ -220,19 +220,20 @@ class ContactManager(ts3plugin):
             self.changesdlg.activateWindow()
 
     def onClientMoveEvent(self, schid, clientID, oldChannelID, newChannelID, visibility, moveMessage):
-        self.doContactActions(schid, clientID) 
+        self.doContactActions(schid, clientID)         
 
     def onClientDisplayNameChanged(self, schid, clientID, displayName, uid):        
-        QTimer.singleShot(200, lambda : self.doContactActions(schid, clientID))        
- 
+        QTimer.singleShot(200, lambda : self.doContactActions(schid, clientID)) 
+        
     def doContactActions(self, schid, clientID):    
         # Own client ID and own channel
         (error, myid) = ts3.getClientID(schid)
         (error, mych) = ts3.getChannelOfClient(schid, myid)
         (error, cch) = ts3.getChannelOfClient(schid, clientID)
+        (error, isDefaultChannel) = ts3.getChannelVariableAsInt(schid, mych, ts3defines.ChannelProperties.CHANNEL_FLAG_DEFAULT)
 
         # Only react if client joins my channel and at least one setting is activated
-        if cch == mych and not myid == clientID and (self.settings["f_channelgroup"] or self.settings["f_talkpower"] or self.settings["b_channelgroup"] or self.settings["b_kick"]):
+        if not isDefaultChannel == 1 and cch == mych and not myid == clientID and (self.settings["f_channelgroup"] or self.settings["f_talkpower"] or self.settings["b_channelgroup"] or self.settings["b_kick"]):
             
             # Contact status check
             (error, cuid) = ts3.getClientVariableAsString(schid, clientID, ts3defines.ClientProperties.CLIENT_UNIQUE_IDENTIFIER)
@@ -282,17 +283,17 @@ class ContactManager(ts3plugin):
     
     def setClientChannelGroup(self, schid, status, cid, chid):        
         (error, suid) = ts3.getServerVariableAsString(schid, ts3defines.VirtualServerProperties.VIRTUALSERVER_UNIQUE_IDENTIFIER)
-
+        (error, curr_channelgroup) = ts3.getClientVariableAsString(schid, cid, ts3defines.ClientPropertiesRare.CLIENT_CHANNEL_GROUP_ID)
+        
         db = self.db.exec_("SELECT db_f_channelgroup, db_b_channelgroup FROM server WHERE db_suid='"+str(suid)+"' LIMIT 1")
         if not self.db.lastError().isValid():
             if db.next():
-                if db.value("db_b_channelgroup") == "":
-                    return
+                if status == 1 and (db.value("db_b_channelgroup") == "" or db.value("db_b_channelgroup") == int(curr_channelgroup)): return
+                if status == 0 and (db.value("db_f_channelgroup") == "" or db.value("db_f_channelgroup") == int(curr_channelgroup)): return
                 (error, cdbid) = ts3.getClientVariableAsUInt64(schid, cid, ts3defines.ClientPropertiesRare.CLIENT_DATABASE_ID)
                 group = None
                 if status == 1: group = db.value("db_b_channelgroup")
                 if status == 0: group = db.value("db_f_channelgroup")
-
                 ts3.requestSetClientChannelGroup(schid, [group], [chid], [cdbid], self.error_setClientChannelGroup)
  
     # Catching Plguin Errors
