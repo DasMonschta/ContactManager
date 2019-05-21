@@ -217,8 +217,24 @@ class ContactManager(ts3plugin):
             self.changesdlg = ChangesDialog(self)
             self.changesdlg.show()
             self.changesdlg.raise_()
-            self.changesdlg.activateWindow()
+            self.changesdlg.activateWindow()           
 
+            
+    def onClientKickFromChannelEvent(self, schid, clientID, oldChannelID, newChannelID, visibility, kickerID, kickerName, kickerUniqueIdentifier, kickMessage):
+        # Own client ID and own channel
+        (error, myid) = ts3.getClientID(schid)
+        (error, mych) = ts3.getChannelOfClient(schid, myid)
+        
+        if oldChannelID == mych and not myid == kickerID:
+            (error, cuid) = ts3.getClientVariableAsString(schid, clientID, ts3defines.ClientProperties.CLIENT_UNIQUE_IDENTIFIER)
+            (error, cname) = ts3.getClientVariableAsString(schid, clientID, ts3defines.ClientProperties.CLIENT_NICKNAME)
+            status = self.contactStatus(kickerUniqueIdentifier)
+            kickerName_show = "[color=black]"+kickerName+"[/color]"
+            if status == 0: friend = kickerName_show = "[color=#02D110]"+kickerName+"[/color]"            
+            ts3.printMessage(schid, "[color=black]‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾[/color]", ts3defines.PluginMessageTarget.PLUGIN_MESSAGE_TARGET_SERVER)
+            ts3.printMessage(schid, "[URL=client://"+str(clientID)+"/"+str(cuid)+"~"+cname+"][color=black]"+cname+"[/color][/URL] [color=black]was kicked by[/color] [URL=client://"+str(kickerID)+"/"+str(kickerUniqueIdentifier)+"~"+kickerName+"]"+kickerName_show+"[/URL]", ts3defines.PluginMessageTarget.PLUGIN_MESSAGE_TARGET_SERVER)
+            ts3.printMessage(schid, "[color=black]_____________________________________[/color]", ts3defines.PluginMessageTarget.PLUGIN_MESSAGE_TARGET_SERVER)
+        
     def onClientMoveEvent(self, schid, clientID, oldChannelID, newChannelID, visibility, moveMessage):
         self.doContactActions(schid, clientID)         
 
@@ -242,27 +258,30 @@ class ContactManager(ts3plugin):
             # Only react if friend or blocked joined the channel
             if status == 0 or status == 1:            
                 # blocked
-                if status == 1:
-                    # Send message to blocked user
-                    if self.settings["b_message"]:
-                        ts3.requestSendPrivateTextMsg(schid, self.settings["b_message_message"], clientID, self.error_sendMessage)
+                if status == 1: 
                     # Assign blocked channelgroup
                     if self.settings["b_channelgroup"]:
-                        self.setClientChannelGroup(schid, 1, clientID, mych)
+                        channelgroup = self.setClientChannelGroup(schid, 1, clientID, mych)
                     # kick blocked
                     if self.settings["b_kick"]:
                         ts3.requestClientKickFromChannel(schid, clientID, self.settings["b_kick_message"], self.error_kickFromChannel)
+                    
+                    (error, new_cch) = ts3.getChannelOfClient(schid, clientID)
+                    # Send message to blocked user if kick was valid
+                    if not new_cch == mych and self.settings["b_message"]:
+                        ts3.requestSendPrivateTextMsg(schid, self.settings["b_message_message"], clientID, self.error_sendMessage)
+
                 # freinds
-                if status == 0:                
-                    # Send message to blocked user
-                    if self.settings["f_message"]:
-                        ts3.requestSendPrivateTextMsg(schid, self.settings["f_message_message"], clientID, self.error_sendMessage)
+                if status == 0:  
                     # Assign friends channelgroup
                     if self.settings["f_channelgroup"]:
                         self.setClientChannelGroup(schid, 0, clientID, mych)
                     # Grant friends talkpower
                     if self.settings["f_talkpower"]:
                         ts3.requestClientSetIsTalker(schid, clientID, True, self.error_setClientTalkpower)
+                    # Send message to friends                 
+                    if self.settings["f_message"]:
+                        ts3.requestSendPrivateTextMsg(schid, self.settings["f_message_message"], clientID, self.error_sendMessage)
 
     def contactStatus(self, uid):
         # --------------------------------------------
@@ -284,7 +303,7 @@ class ContactManager(ts3plugin):
     def setClientChannelGroup(self, schid, status, cid, chid):        
         (error, suid) = ts3.getServerVariableAsString(schid, ts3defines.VirtualServerProperties.VIRTUALSERVER_UNIQUE_IDENTIFIER)
         (error, curr_channelgroup) = ts3.getClientVariableAsString(schid, cid, ts3defines.ClientPropertiesRare.CLIENT_CHANNEL_GROUP_ID)
-        
+
         db = self.db.exec_("SELECT db_f_channelgroup, db_b_channelgroup FROM server WHERE db_suid='"+str(suid)+"' LIMIT 1")
         if not self.db.lastError().isValid():
             if db.next():
@@ -295,7 +314,8 @@ class ContactManager(ts3plugin):
                 if status == 1: group = db.value("db_b_channelgroup")
                 if status == 0: group = db.value("db_f_channelgroup")
                 ts3.requestSetClientChannelGroup(schid, [group], [chid], [cdbid], self.error_setClientChannelGroup)
- 
+
+        
     # Catching Plguin Errors
     def onServerErrorEvent(self, schid, errorMessage, error, returnCode, extraMessage):
         if returnCode == self.error_sendMessage or returnCode == self.error_kickFromChannel or returnCode == self.error_setClientTalkpower or returnCode == self.error_setClientChannelGroup: return True
